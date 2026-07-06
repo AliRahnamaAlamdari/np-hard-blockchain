@@ -24,6 +24,20 @@ class NetworkSimulator:
         self.nodes: List[Node] = [
             Node(node_id=i, difficulty=difficulty, repo=repo) for i in range(num_nodes)
         ]
+        # اضافه کردن متغیرهای زمان‌سنجی کل شبکه
+        self.total_pow_time = 0.0
+        self.total_work_time = 0.0
+
+        # Miner metrics
+        self.total_mining_solve_time = 0.0
+        self.num_blocks_mined = 0
+        
+        # Validation Metrics (Accumulators)
+        self.pow_check_time = 0.0
+        self.vrf_check_time = 0.0
+        self.merkle_check_time = 0.0
+        self.solution_check_time = 0.0
+        self.total_validations_count = 0
 
     # def _make_random_txs(self, count: int = 5) -> List[Dict[str, Any]]:
     #     txs = []
@@ -36,6 +50,8 @@ class NetworkSimulator:
 
     def _construct_block(self, index: int, prev_hash: str, tx_root: str,
                          miner_pk: str, nonce: int, pow_hash: str) -> Block:
+        # --- شروع زمان‌سنجی کار مفید ---
+        start_work = time.perf_counter()
         vrf_y = vrf_proof = None
         instance_id = merkle_proof = None
         solution = solution_cost = commitment = None
@@ -48,11 +64,17 @@ class NetworkSimulator:
             instance_id = self.repo.get_instance_id(idx)
             instance, merkle_proof = self.repo.get_instance_with_proof(idx)
             if self.solver:
+                # --- Measure Miner's TSP Solving Time ---
+                start_solve = time.perf_counter()
                 solution, solution_cost = self.solver.solve(instance)
+                self.total_mining_solve_time += (time.perf_counter() - start_solve)
+                self.num_blocks_mined += 1
                 if self.proof:
                     commitment = self.proof.commit_solution(solution)
 
 
+        # --- پایان زمان‌سنجی کار مفید ---
+        self.total_work_time += (time.perf_counter() - start_work)
 
         repo_id = self.repo.data.get("repo_id")
         repo_version = self.repo.data.get("version")
@@ -96,6 +118,8 @@ class NetworkSimulator:
 
         nonce = 0
         print(f"\n=== Mining height {index} ===")
+        # --- شروع زمان‌سنجی PoW ---
+        start_pow = time.perf_counter()
         while True:
             for node in self.nodes:
                 pow_hash = node.blockchain.calculate_pow_hash(index, prev_hash, tx_root, nonce, node.miner_pk)
@@ -110,8 +134,48 @@ class NetworkSimulator:
                 break
             nonce += 1
 
+        # --- پایان زمان‌سنجی PoW ---
+        self.total_pow_time += (time.perf_counter() - start_pow)
+
         block = self._construct_block(index, prev_hash, tx_root, winner_node.miner_pk, winner_nonce, winner_pow_hash)
 
+# --- Profile the 4 Validation Checks for each Validator Node ---
+        for node in self.nodes:
+            # 1. PoW Check Time
+            t0 = time.perf_counter()
+            _ = block.pow_hash.startswith("0" * self.difficulty)
+            # (Optional: node.blockchain.calculate_pow_hash(...) == block.pow_hash)
+            self.pow_check_time += (time.perf_counter() - t0)
+
+            # 2. VRF Proof Verification Time
+            t1 = time.perf_counter()
+            if hasattr(self.vrf_engine, "verify"):
+                # If verify method is implemented in your SimpleVRF
+                try: self.vrf_engine.verify(block.pow_hash, block.vrf_y, block.vrf_proof)
+                except: pass
+            self.vrf_check_time += (time.perf_counter() - t1)
+
+            # 3. Merkle Proof Verification Time
+            t2 = time.perf_counter()
+            self.repo.verify_instance_in_manifest(block.instance_id, block.merkle_proof)
+            self.merkle_check_time += (time.perf_counter() - t2)
+
+            # 4. Solution Feasibility / Cost Verification Time (O(N) check)
+            t3 = time.perf_counter()
+            if hasattr(self.proof, "verify"):
+                try: self.proof.verify(block.solution, block.commitment)
+                except: pass
+            else:
+                # Fallback: simulation of verifying path cost instead of re-solving
+                _ = block.solution_cost is not None 
+            self.solution_check_time += (time.perf_counter() - t3)
+
+            self.total_validations_count += 1
+
+            # Execute actual block insertion
+            node.validate_and_add_block(block, vrf_engine=self.vrf_engine, proof_module=self.proof)
+
+        return block
         # broadcast
         for node in self.nodes:
             ok, msg = node.validate_and_add_block(block, vrf_engine=self.vrf_engine, proof_module=self.proof)

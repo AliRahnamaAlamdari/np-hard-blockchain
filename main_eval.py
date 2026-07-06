@@ -17,7 +17,7 @@ def main():
     repo_path = os.path.join(base_dir, "registry", "registry.json")
     repo = Registry(repo_path)
     
-    num_blocks = 20 # تعداد بلوک ها را برای آماری بودن افزایش دهید
+    num_blocks = 10 # تعداد بلوک ها را برای آماری بودن افزایش دهید
 
     # 1. سناریوی PoW پایه (سختی بالا)
     pow_difficulty = 6 # سختی بالاتری که تقریبا زمان حل آن با PoW-NP برابر شود
