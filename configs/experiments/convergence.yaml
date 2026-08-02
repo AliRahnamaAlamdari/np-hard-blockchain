@@ -1,0 +1,25 @@
+# Quantifies the paper's prose convergence claim (L483) and independently
+# checks that mined tours are actually optimal, using Held-Karp as a second
+# exact algorithm.
+
+base: ../default.yaml
+
+name: convergence
+description: Node agreement on the chain tip and independent optimality checking
+
+pow:
+  difficulty_bits: 10
+
+repository:
+  instance_size: 8
+
+network:
+  num_miners: 5
+  num_blocks: 100
+
+run:
+  seeds: [0, 1, 2]
+  log_every_blocks: 25
+
+sweep:
+  check_optimality: true

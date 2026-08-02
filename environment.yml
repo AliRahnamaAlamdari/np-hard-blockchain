@@ -1,0 +1,24 @@
+# Conda environment for the PoUW reproduction package.
+#
+#   conda env create -f environment.yml
+#   conda activate pouw-repro
+#
+# The ECVRF implementation is pure Python and needs no compiled extension, so this
+# environment is portable across Linux, macOS (Intel and Apple silicon), and Windows.
+
+name: pouw-repro
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.12
+  - numpy=2.5.1
+  - scipy=1.18.0
+  - pyyaml=6.0.3
+  - matplotlib=3.11.1
+  - psutil=7.2.2
+  - pytest=9.1.1
+  - pip
+  - pip:
+      - ecdsa==0.19.2

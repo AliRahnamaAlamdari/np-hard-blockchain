@@ -1,0 +1,22 @@
+# Ablation the paper does not contain: turns each row of the paper's Table 1
+# (tab:designrationale) into a measurement by removing one component and
+# mounting the attack that component is claimed to prevent.
+
+base: ../default.yaml
+
+name: ablation_components
+description: Disable one protocol component at a time and mount the matching attack
+
+pow:
+  difficulty_bits: 12
+
+repository:
+  num_instances: 64
+  instance_size: 8
+
+run:
+  seeds: [0, 1, 2]
+
+sweep:
+  spam_seconds: 0.5
+  scan_instances: 32

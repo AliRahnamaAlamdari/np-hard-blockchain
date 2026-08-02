@@ -1,0 +1,18 @@
+# Mining advantage from a better exact solver on the identical assigned
+# instances. Both solvers return the same optimum, so a Held-Karp miner produces
+# fully valid blocks for a fraction of the work.
+
+base: ../default.yaml
+
+name: sensitivity_solver_advantage
+description: Mining advantage from a better exact solver on the same instances
+
+pow:
+  difficulty_bits: 10
+
+run:
+  seeds: [0, 1, 2]
+
+sweep:
+  instance_sizes: [6, 8, 10]
+  repetitions: 10

@@ -1,0 +1,12 @@
+# Reviewer-2 comment 3: static-repository precompute cost vs size + freshness break-even.
+base: ../default.yaml
+name: precomputation_scale
+description: Static-repository precompute cost and freshness mitigation
+run:
+  seeds: [0, 1, 2]
+sweep:
+  problem_class: tsp
+  sizes: [6, 8, 10, 11]
+  repository_sizes: [256, 1024, 4096]
+  epoch_blocks: 2016
+  solve_reps: 5

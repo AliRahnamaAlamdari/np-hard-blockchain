@@ -1,0 +1,15 @@
+# The paper's full Table 4 sweep, including N=12 at 50 repetitions.
+# Expect several hours. See README.md for measured runtimes.
+
+base: table4_problem_size.yaml
+
+name: table4_problem_size
+description: Full paper sweep -- N in {4, 6, 8, 10, 12}, 50 repetitions
+
+run:
+  seeds: [0, 1, 2]
+  repetitions: 50
+
+sweep:
+  instance_sizes: [4, 6, 8, 10, 12]
+  compare_held_karp: true

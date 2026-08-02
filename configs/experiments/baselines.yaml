@@ -1,0 +1,12 @@
+# Reviewer comment 5: measured comparison of in-house baseline designs.
+base: ../default.yaml
+name: baselines
+description: Measured comparison of pure-PoW / miner-chosen / VRF-only / ours
+pow:
+  difficulty_bits: 10
+run:
+  seeds: [0, 1, 2]
+sweep:
+  problem_class: tsp
+  instance_size: 10
+  verify_trials: 200

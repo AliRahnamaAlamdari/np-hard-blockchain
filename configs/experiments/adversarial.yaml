@@ -1,0 +1,22 @@
+# Reviewer comment 2: adversarial corroboration of the security claims.
+base: ../default.yaml
+name: adversarial
+description: Grinding, precomputation, replay, assignment bias, adaptive steering, malicious majority
+pow:
+  difficulty_bits: 10
+repository:
+  num_instances: 256
+run:
+  seeds: [0, 1, 2]
+sweep:
+  vrf_backends: [ecvrf, ecdsa_pseudo]
+  grinding_evals: 50
+  precomputed_fractions: [0.05, 0.1, 0.25, 0.5]
+  precomp_trials: 800
+  bias_repo_size: 16
+  bias_samples: 1600
+  favoured_fractions: [0.5, 0.25]
+  steer_trials: 50
+  majority_miners: 20
+  majority_blocks: 400
+  adversary_shares: [0.1, 0.3, 0.5, 0.7, 0.9]

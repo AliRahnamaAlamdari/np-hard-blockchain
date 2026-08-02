@@ -1,0 +1,30 @@
+# Fairness under heterogeneous hash rates. The paper tests only equal-power
+# miners, where a Jain index near 1 is the expected outcome and therefore
+# carries no information about whether the protocol is biased.
+
+base: ../default.yaml
+
+name: sensitivity_hash_rate
+description: Fairness under heterogeneous miner hash rates
+
+pow:
+  difficulty_bits: 10
+
+repository:
+  instance_size: 6
+
+network:
+  num_miners: 5
+  num_blocks: 200
+
+run:
+  seeds: [0, 1, 2]
+  log_every_blocks: 100
+
+sweep:
+  blocks: 200
+  hash_rate_distributions:
+    - {label: equal,   rates: [1, 1, 1, 1, 1]}
+    - {label: mild,    rates: [1, 1, 1, 2, 2]}
+    - {label: skewed,  rates: [1, 1, 1, 1, 4]}
+    - {label: dominant, rates: [1, 1, 1, 1, 10]}

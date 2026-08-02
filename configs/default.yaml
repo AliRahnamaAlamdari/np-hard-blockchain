@@ -1,0 +1,67 @@
+# Default parameters for the two-stage VRF-based PoUW framework.
+#
+# Every value the paper states is marked [paper]; every value the paper leaves
+# unspecified is marked [assumed] with a pointer to PAPER_SPEC.md. No experiment
+# constant lives in Python source -- change behaviour here.
+
+name: default
+description: Baseline configuration shared by all experiments
+
+pow:
+  # [assumed] PAPER_SPEC.md 11-U4: the paper gives no numeric target for any tier,
+  # only the labels Low/Medium/High. Encoded here as leading zero bits on the
+  # SHA-256 digest, so T_pow = 2^(256 - difficulty_bits).
+  difficulty_bits: 12
+  max_attempts: 100000000
+
+vrf:
+  # [assumed] PAPER_SPEC.md 11-A3 / 11-I6: the paper says only "deterministic
+  # VRF-like signing" over "an ECDSA library" and never names a construction.
+  #   ecvrf        - RFC 9381 ECVRF-EDWARDS25519-SHA512-TAI (unique output)
+  #   ecdsa_pseudo - malleable ECDSA, the paper-faithful reading
+  #   hash_stub    - keyless, matches the paper's reported verification latency
+  backend: ecvrf
+  curve: SECP256k1
+
+repository:
+  # [assumed] PAPER_SPEC.md 11-U3: the paper never states the repository size.
+  # A power of two also makes Equation (3)'s modulo exactly unbiased.
+  num_instances: 256
+  # [paper] TSP sizes evaluated are N in {4, 6, 8, 10, 12} (Table 4).
+  instance_size: 9
+  seed: 20260722
+  # [assumed] PAPER_SPEC.md 11-U2: coordinate range and distribution are not stated.
+  coordinate_min: 0.0
+  coordinate_max: 100.0
+  difficulty_class: null
+
+solver:
+  # [paper] L408: deterministic exhaustive search over (N-1)! permutations.
+  name: brute_force
+  # [assumed] PAPER_SPEC.md 11-U7: the paper's "protocol-defined quality bound" is
+  # never instantiated, and never binds with an exact solver. null = exact required.
+  quality_threshold: null
+  cost_tolerance: 1.0e-9
+
+network:
+  # [paper] L487: five nodes with equivalent processing power.
+  num_miners: 5
+  # [paper] L487: the fairness experiment runs until 500 blocks are mined.
+  num_blocks: 50
+  hash_rates: null
+  propagation_delay_s: 0.0
+  # [assumed] PAPER_SPEC.md 11-U14: the tie-breaking rule is not stated.
+  tie_break: lowest_index
+
+run:
+  # [assumed] PAPER_SPEC.md 11-U11: the paper reports no seed anywhere.
+  seeds: [0, 1, 2]
+  output_dir: results
+  log_level: INFO
+  log_every_blocks: 25
+  checkpoint_every_blocks: 0
+  track_memory: true
+  # [paper] L408: 50 independent runs per instance size.
+  repetitions: 50
+
+sweep: {}

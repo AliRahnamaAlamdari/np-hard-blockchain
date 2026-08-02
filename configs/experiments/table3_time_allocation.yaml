@@ -1,0 +1,34 @@
+# Regenerates the paper's Table 3 (tab:timeallocation).
+#
+# The paper reports Low/Medium/High tiers with no numeric targets
+# (PAPER_SPEC.md 11-U4). The difficulty_bits below were calibrated on the
+# reference machine so the three tiers span roughly the same useful-work shares
+# the paper reports (90.6% / 46.8% / 2.3%). Absolute seconds are machine
+# dependent; the reproducible claim is the monotone trend and the span.
+
+base: ../default.yaml
+
+name: table3_time_allocation
+description: Time share between the PoW gate and useful work across difficulty tiers
+
+repository:
+  instance_size: 9
+
+network:
+  num_miners: 5
+
+run:
+  seeds: [0, 1, 2]
+  log_every_blocks: 5
+
+sweep:
+  # Calibrated so the three tiers land near the paper's reported shares
+  # (90.60% / 46.78% / 2.31% useful) on the reference machine, where one header
+  # hash costs ~4.7 us and an N=9 brute-force solve costs ~16 ms.
+  # Recalibrate on slower or faster hardware: the tier labels are qualitative and
+  # the reproducible claim is the monotone span, not the absolute seconds.
+  difficulty_tiers:
+    - {label: Low, difficulty_bits: 8}
+    - {label: Medium, difficulty_bits: 12}
+    - {label: High, difficulty_bits: 17}
+  blocks_per_tier: 5

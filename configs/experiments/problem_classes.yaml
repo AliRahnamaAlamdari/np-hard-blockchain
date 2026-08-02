@@ -1,0 +1,15 @@
+# Reviewer comment 9: the framework across multiple NP-hard problem classes.
+# TSP brute force is (N-1)!; sizes kept modest so the cross-class table is tractable.
+# Per-class exponential scaling is asymptotically identical (see draft_complexity);
+# TSP's own size scaling is Table 4.
+base: ../default.yaml
+name: problem_classes
+description: Full framework cycle across TSP, knapsack, graph colouring, and 3-SAT
+pow:
+  difficulty_bits: 8
+run:
+  seeds: [0, 1, 2]
+  repetitions: 5
+sweep:
+  problem_classes: [tsp, knapsack, graph_coloring, sat]
+  sizes: [8, 10]

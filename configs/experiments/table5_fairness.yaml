@@ -1,0 +1,26 @@
+# Regenerates the paper's Table 5 (tab:fairness): 5 nodes, 500 blocks.
+#
+# The paper does not state which instance size the fairness run used
+# (PAPER_SPEC.md 11-U10). N=6 keeps 500 blocks x 5 seeds tractable while leaving
+# the PoW race -- the only thing that decides who wins -- untouched.
+
+base: ../default.yaml
+
+name: table5_fairness
+description: Block distribution across equal-power miners, with a uniformity test
+
+pow:
+  difficulty_bits: 10
+
+repository:
+  instance_size: 6
+
+network:
+  num_miners: 5
+  num_blocks: 500
+  hash_rates: null
+
+run:
+  seeds: [0, 1, 2, 3, 4]
+  log_every_blocks: 100
+  checkpoint_every_blocks: 100

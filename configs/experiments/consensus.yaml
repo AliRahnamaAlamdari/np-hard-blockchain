@@ -1,0 +1,20 @@
+# Reviewer comment 3: consensus-level properties via the event-driven model.
+base: ../default.yaml
+name: consensus
+description: Fork rate, convergence, liveness, difficulty adjustment
+run:
+  seeds: [0, 1, 2, 3, 4]
+sweep:
+  blocks: 400
+  miners: 20
+  base_block_rate: 1.0
+  delays: [0.0, 0.05, 0.1, 0.25, 0.5, 1.0]
+  miner_counts: [10, 50, 100, 500, 1000]
+  scale_delay: 0.2
+  solve_stds: [0.0, 0.5, 1.0, 2.0]
+  churn_interval: 50
+  churn_fraction: 0.3
+  retarget_target: 2.0
+  retarget_window: 20
+  retarget_start_rate: 5.0
+  retarget_blocks: 600

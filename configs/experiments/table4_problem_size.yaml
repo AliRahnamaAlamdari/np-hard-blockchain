@@ -1,0 +1,26 @@
+# Regenerates the paper's Table 4 (tab:problemsize).
+#
+# The paper sweeps N in {4, 6, 8, 10, 12} with 50 repetitions each (L408).
+# N=12 is included but costs roughly 100 s per solve on the paper's machine and
+# 40 s here, so 50 repetitions x 3 seeds would take over 90 minutes on that row
+# alone. Set repetitions and instance_sizes to match the budget you have; the
+# full paper sweep is configs/experiments/table4_problem_size_full.yaml.
+
+base: ../default.yaml
+
+name: table4_problem_size
+description: Useful-work solve time and computation share against TSP size N
+
+pow:
+  # Held constant across the sweep, as the paper does. Chosen so the measured PoW
+  # time lands in the same 1-4 ms band the paper's "Avg PoW (s)" column reports
+  # (0.00106-0.00406 s), making the useful-work shares comparable.
+  difficulty_bits: 8
+
+run:
+  seeds: [0, 1, 2]
+  repetitions: 20
+
+sweep:
+  instance_sizes: [4, 6, 8, 10]
+  compare_held_karp: true

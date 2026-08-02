@@ -1,0 +1,17 @@
+# Sensitivity to N, the repository size in Equation (3). The paper never states
+# its value (PAPER_SPEC.md 11-U3) despite N appearing in the core selection rule.
+
+base: ../default.yaml
+
+name: sensitivity_repository_size
+description: Effect of repository size N on selection uniformity and proof cost
+
+repository:
+  instance_size: 5
+
+run:
+  seeds: [0, 1, 2]
+
+sweep:
+  repository_sizes: [16, 64, 256, 1024]
+  draws_per_size: 2000

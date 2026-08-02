@@ -1,0 +1,17 @@
+# Reviewer-2 comments 6 & 8: seed reseeding to bias task assignment vs the hashing target.
+base: ../default.yaml
+name: reseeding_bias
+description: Assignment bias vs hashing target; safe-target boundary
+repository:
+  num_instances: 256
+run:
+  seeds: [0, 1, 2]
+sweep:
+  favoured_fraction: 0.25
+  reseed_budgets: [0, 1, 2, 5, 10]
+  difficulty_bits: [4, 8, 12, 16, 20, 24, 28, 32]
+  trials: 400
+  problem_class: tsp
+  favoured_instance_size: 8
+  assigned_instance_size: 11
+  solve_reps: 5

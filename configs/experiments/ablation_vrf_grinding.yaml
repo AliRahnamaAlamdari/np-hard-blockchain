@@ -1,0 +1,25 @@
+# Ablation the paper does not contain: does the VRF primitive actually deliver
+# design goals G3 (unbiased task selection) and G4 (precomputation resistance)?
+#
+# Fixes one valid PoW seed and evaluates each VRF backend repeatedly, counting
+# how many distinct task indices become reachable. The paper's grinding bound
+# (k/p hash attempts for k task samples, L375) holds only if that count is 1.
+
+base: ../default.yaml
+
+name: ablation_vrf_grinding
+description: Distinct tasks reachable per PoW seed, by VRF primitive
+
+pow:
+  difficulty_bits: 12
+
+repository:
+  num_instances: 256
+  instance_size: 6
+
+run:
+  seeds: [0, 1, 2]
+
+sweep:
+  vrf_backends: [ecvrf, ecdsa_pseudo, hash_stub]
+  attempt_budgets: [1, 2, 5, 10, 25, 50, 100]

@@ -1,0 +1,11 @@
+# Reviewer-2 comments 7 & 10: feasibility-vs-optimality cost + communication/bandwidth.
+base: ../default.yaml
+name: validation_scale
+description: Feasibility vs optimality verification cost and communication cost at scale
+run:
+  seeds: [0, 1, 2]
+sweep:
+  problem_classes: [tsp, knapsack, graph_coloring, sat]
+  sizes: [8, 10, 12]
+  repository_size: 1024
+  verify_reps: 2000
