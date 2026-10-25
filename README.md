@@ -1,15 +1,13 @@
 # Reproduction package — Two-Stage VRF-Based PoUW
 
-A complete, runnable reimplementation of every quantitative result in *"A Two-Stage
+The simulator and experiment harness behind every quantitative result in *"A Two-Stage
 VRF-Based Task Assignment Framework for Proof-of-Useful-Work Blockchains Using NP-hard
-Computation"* (Rahnama Alamdari & Malekimajd), plus the ablations, sensitivity
-analyses, and statistical tests the paper does not contain.
+Computation"* (Rahnama Alamdari & Malekimajd), together with the ablations and
+sensitivity analyses that support it.
 
-**Read [`PAPER_SPEC.md`](PAPER_SPEC.md) first.** It is the complete extraction of the
-paper — every equation, algorithm, hyperparameter, and reported number — and §11 lists
-every ambiguity and internal inconsistency found during extraction. This
-implementation resolves none of them silently; each assumption is recorded in
-`PAPER_SPEC.md` §11 and marked in the config files.
+All numbers reported in the manuscript come from one execution of `./run_all.sh`. Every
+parameter the manuscript does not fix explicitly is marked `[assumed]` in the config
+files, with the value used.
 
 ---
 
@@ -72,9 +70,9 @@ a machine fingerprint, so any number can be traced to the run that produced it.
 | Table 4 full sweep incl. N=12 | `python scripts/run_experiment.py table4_problem_size --config configs/experiments/table4_problem_size_full.yaml` | hours |
 | Table 5 `tab:fairness` — block distribution | `python scripts/run_experiment.py table5_fairness` | ~4 min |
 | Table 6 `tab:validationcost` — validation latency | `python scripts/run_experiment.py table6_validation_cost` | ~2 min |
-| §"Convergence and Correctness" (L483) | `python scripts/run_experiment.py convergence` | ~1 min |
+| §"Convergence and Correctness" | `python scripts/run_experiment.py convergence` | ~1 min |
 | Table 1 `tab:designrationale` (rhetorical → measured) | `python scripts/run_experiment.py ablation_components` | ~1 min |
-| Grinding bound argued at L375 | `python scripts/run_experiment.py ablation_vrf_grinding` | ~1 min |
+| Grinding bound (unique vs. malleable VRF) | `python scripts/run_experiment.py ablation_vrf_grinding` | ~1 min |
 | **New** — repository size N of Equation (3) | `python scripts/run_experiment.py sensitivity_repository_size` | ~4 min |
 | **New** — fairness beyond equal power | `python scripts/run_experiment.py sensitivity_hash_rate` | ~3 min |
 | **New** — solver-quality mining advantage | `python scripts/run_experiment.py sensitivity_solver_advantage` | ~1 min |
@@ -160,25 +158,24 @@ src/pouw/
     miner.py           Algorithm 1
     validator.py       Algorithm 2
     network.py         discrete-event race and simulation loop
-  metrics/             fairness, timing, convergence — from PAPER_SPEC.md §9
+  metrics/             fairness, timing, convergence
   experiments/         one module per table/ablation
   reporting/           JSON/CSV, LaTeX, matplotlib
 configs/               all hyperparameters; no magic numbers in code
-tests/                 244 tests
+tests/                 pytest suite
 ```
 
 ### The three VRF backends
 
-The paper says only "deterministic VRF-like signing and verification" (L405) over "an
-ECDSA library" (L412) and never names a construction. `PAPER_SPEC.md` §11-I6 explains
-why that gap is load-bearing, so all three readings are implemented and selectable via
+All reported results use `ecvrf`. The other two backends exist only as controls in the
+grinding ablation and the backend comparison; all three are selectable via
 `vrf.backend`:
 
 | Backend | What it is | Unique output? |
 |---|---|---|
 | `ecvrf` | RFC 9381 ECVRF-EDWARDS25519-SHA512-TAI | **Yes** |
-| `ecdsa_pseudo` | ECDSA "VRF-like signing", the paper-faithful reading | No — malleable nonce |
-| `hash_stub` | keyless hash chain matching the paper's reported latency | No — verifies nothing |
+| `ecdsa_pseudo` | ECDSA signature used as a VRF (malleable control) | No — malleable nonce |
+| `hash_stub` | keyless hash chain (lower-bound latency control) | No — verifies nothing |
 
 `ablation_vrf_grinding` measures the consequence: with a real VRF, one paid PoW seed
 yields exactly one task; with the malleable backend, one seed yields many, and every
@@ -187,10 +184,9 @@ forged proof passes validation.
 ## Data
 
 No external dataset. All TSP instances are generated deterministically from the config
-(`repository.seed`, `coordinate_min`/`coordinate_max`, `instance_size`), matching the
-paper's description of JSON instances with float x/y coordinates on a 2D Euclidean
-plane (L408). The paper does not state the coordinate range, distribution, or seed
-(`PAPER_SPEC.md` §11-U2); uniform on [0, 100]² is the assumption here.
+(`repository.seed`, `coordinate_min`/`coordinate_max`, `instance_size`), as JSON
+instances with float x/y coordinates on a 2D Euclidean plane, drawn uniformly from
+[0, 100]².
 
 Nothing is downloaded, and there is no licensing obstacle to redistribution. A
 repository can be materialised to disk with `ProblemRepository.save()` and reloaded
@@ -199,7 +195,7 @@ with `ProblemRepository.load()` if you want to pin exact instances.
 ## Tests
 
 ```bash
-pytest                    # 244 tests, ~25 s
+pytest                    # full suite, ~6 min
 pytest -m "not slow"      # unit tests only, ~3 s
 pytest tests/test_metrics.py -v
 ```
@@ -208,8 +204,7 @@ Coverage of note:
 
 - **Metrics pinned to the paper's own numbers.** The paper's Table 5 is internally
   self-consistent, so its reported std dev (7.6420), max/min ratio (1.2198) and Jain
-  index (0.9942) are used as ground truth. This also pins the `ddof=0` convention,
-  which the paper does not state.
+  index (0.9942) are used as ground truth. This also pins the `ddof=0` convention.
 - **Adversarial validation tests.** Each tampers with exactly one block field and
   asserts the specific check that must reject it — forged VRF proof, proof from
   another miner's key, wrong instance index, substituted instance, infeasible tour,
@@ -226,11 +221,9 @@ Coverage of note:
 
 ## Relationship to the manuscript
 
-This package does not modify `sn-article.tex`. LaTeX tables are written to
-`results/latex/` for the author to review and paste. They use the same `booktabs`
-formatting, column specs, and `\label` names as the manuscript, so they are drop-in
-replacements — but the numbers will differ from the printed ones wherever
-`PAPER_SPEC.md` §11 records an inconsistency, and those differences are the point.
+LaTeX tables are written to `results/latex/` and manuscript figures to
+`results/figures/`. Each `results/<experiment>/*.json` carries a `manifest` block
+recording the host, interpreter, and library versions of the run that produced it.
 
 ## Citation and license
 
