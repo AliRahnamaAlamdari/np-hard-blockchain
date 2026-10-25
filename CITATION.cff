@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 title: "NP-Hard Blockchain: Replication Package for a Two-Stage VRF-Based PoUW Framework"
-version: v1.0
+version: v1.0.1
 date-released: 2026-10-25
 license: MIT
 repository-code: "https://github.com/AliRahnamaAlamdari/np-hard-blockchain"

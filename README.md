@@ -228,5 +228,5 @@ recording the host, interpreter, and library versions of the run that produced i
 ## Citation and license
 
 Released under the MIT License (see [`LICENSE`](LICENSE)). The version that produced
-the numbers in the manuscript is tagged `v1.0`; cite it using the metadata in
+the numbers in the manuscript is tagged `v1.0.1`; cite it using the metadata in
 [`CITATION.cff`](CITATION.cff) (GitHub's *Cite this repository* button reads it).
