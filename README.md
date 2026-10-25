@@ -231,3 +231,9 @@ This package does not modify `sn-article.tex`. LaTeX tables are written to
 formatting, column specs, and `\label` names as the manuscript, so they are drop-in
 replacements — but the numbers will differ from the printed ones wherever
 `PAPER_SPEC.md` §11 records an inconsistency, and those differences are the point.
+
+## Citation and license
+
+Released under the MIT License (see [`LICENSE`](LICENSE)). The version that produced
+the numbers in the manuscript is tagged `v1.0`; cite it using the metadata in
+[`CITATION.cff`](CITATION.cff) (GitHub's *Cite this repository* button reads it).

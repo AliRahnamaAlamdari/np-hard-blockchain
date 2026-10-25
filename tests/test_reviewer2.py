@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+from pathlib import Path
 
 import pytest
 
@@ -106,6 +107,14 @@ class TestValidationScaleInvariants:
         assert witness_bytes < 1000  # a 12-city tour is well under 1 KB
 
 
+_ROOT = Path(__file__).resolve().parents[1]
+
+
+# The bibliography belongs to the manuscript, not the code release.
+@pytest.mark.skipif(
+    not (_ROOT / "sn-bibliography.bib").exists(),
+    reason="manuscript bibliography not shipped with the code release",
+)
 class TestBibCleaned:
     def test_no_placeholder_authors(self):
         from pathlib import Path

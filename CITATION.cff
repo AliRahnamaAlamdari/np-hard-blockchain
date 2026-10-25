@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "NP-Hard Blockchain: Replication Package for a Two-Stage VRF-Based PoUW Framework"
+version: v1.0
+date-released: 2026-10-25
+license: MIT
+repository-code: "https://github.com/AliRahnamaAlamdari/np-hard-blockchain"
+type: software
+authors:
+  - family-names: Rahnama Alamdari
+    given-names: Ali
+    affiliation: Iran University of Science and Technology
+  - family-names: Malekimajd
+    given-names: Marzieh
+    affiliation: Iran University of Science and Technology
+    orcid: "https://orcid.org/0000-0001-9094-7676"
+keywords:
+  - blockchain
+  - proof-of-useful-work
+  - verifiable random function
+  - NP-hard
