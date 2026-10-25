@@ -36,6 +36,9 @@ PALETTE = {
 def _style() -> None:
     plt.rcParams.update(
         {
+            # Springer preflight rejects Type 3 fonts; 42 embeds TrueType instead.
+            "pdf.fonttype": 42,
+            "ps.fonttype": 42,
             "font.size": 9,
             "axes.grid": True,
             "grid.alpha": 0.3,
@@ -124,10 +127,17 @@ def problem_size_figure(rows: Sequence[Mapping[str, Any]], path: Path) -> list[P
         sizes, solve, yerr=errors, marker="o", color=PALETTE["useful"], capsize=3,
         label="Measured brute force",
     )
-    if "mean_heldkarp_seconds" in rows[0]:
+    # Only the sizes where the Held-Karp baseline was actually run carry the key;
+    # the extended sweep caps it, so plot the sub-series rather than assuming all.
+    held_karp = [
+        (row["size"], row["mean_heldkarp_seconds"])
+        for row in rows
+        if row.get("mean_heldkarp_seconds") is not None
+    ]
+    if held_karp:
         ax_time.plot(
-            sizes,
-            [row["mean_heldkarp_seconds"] for row in rows],
+            [size for size, _ in held_karp],
+            [seconds for _, seconds in held_karp],
             marker="^",
             color=PALETTE["overhead"],
             label="Held-Karp (exact)",

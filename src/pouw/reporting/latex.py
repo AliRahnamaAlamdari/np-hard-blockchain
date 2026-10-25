@@ -131,8 +131,10 @@ def problem_size_table(rows: Sequence[Mapping[str, Any]]) -> str:
     Uses more significant figures than the paper, whose 5-decimal column cannot
     reproduce its own percentages at small N (``PAPER_SPEC.md`` §11-I8).
     """
+    # The sweep runs every solver backend, and a row is meaningless without
+    # saying which one produced it, so the solver leads the table.
     headers = [
-        "Instance ID",
+        "Solver",
         "Size ($N$)",
         "Avg PoW (s)",
         "Avg Useful Work (s)",
@@ -140,7 +142,7 @@ def problem_size_table(rows: Sequence[Mapping[str, Any]]) -> str:
     ]
     body = [
         [
-            row["instance_id"],
+            row.get("solver", "brute\\_force").replace("_", "\\_"),
             str(row["size"]),
             f"{row['mean_pow_seconds']:.6g}",
             f"{row['mean_solve_seconds']:.6g} $\\pm$ {row['std_solve_seconds']:.2g}",

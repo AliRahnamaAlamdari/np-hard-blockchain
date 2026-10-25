@@ -18,7 +18,11 @@ from typing import Any
 from ..crypto.hashing import meets_target
 from ..crypto.vrf import KeyPair, VRFBackend
 from ..logging_utils import Timer
-from ..tasks.repository import ProblemRepository, index_from_vrf_output
+from ..tasks.repository import (
+    ProblemRepository,
+    index_from_vrf_output,
+    reference_cost as published_reference_cost,
+)
 from ..tasks.tsp import solve, verify_solution
 from .block import Block, BlockHeader
 
@@ -208,17 +212,28 @@ class Miner:
         solution, operations = solve(instance, solver)
         solve_seconds = time.perf_counter() - solve_start
 
+        # Two separate questions, deliberately not merged.  Feasibility and cost
+        # consistency failing means the solver is broken, so it raises.  Missing the
+        # repository's published quality bound is a legitimate protocol outcome --
+        # it is what a weak solver is supposed to produce -- so it is recorded and
+        # left for the validator to act on.
         ok, reason = verify_solution(
-            instance,
-            solution,
-            quality_threshold=quality_threshold,
-            reference_cost=solution.cost if quality_threshold is not None else None,
-            cost_tolerance=cost_tolerance,
+            instance, solution, quality_threshold=None, cost_tolerance=cost_tolerance
         )
         if not ok:
             raise MiningError(
                 f"miner {self.miner_id} produced an invalid solution at height "
                 f"{height}: {reason}"
+            )
+        bound = published_reference_cost(instance)
+        meets_quality = True
+        if quality_threshold is not None:
+            meets_quality, _ = verify_solution(
+                instance,
+                solution,
+                quality_threshold=quality_threshold,
+                reference_cost=bound,
+                cost_tolerance=cost_tolerance,
             )
 
         package_start = time.perf_counter()
@@ -245,6 +260,8 @@ class Miner:
             "pow_attempts": pow_result.attempts,
             "solver_operations": operations,
             "block_hash": block_hash,
+            "reference_cost": bound,
+            "meets_quality_threshold": meets_quality,
         }
         for label in ("pow_s", "vrf_prove_s", "merkle_proof_s", "solve_s", "package_s"):
             timer.record(label.removesuffix("_s"), timings[label])

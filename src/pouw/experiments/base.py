@@ -59,6 +59,7 @@ class Experiment(abc.ABC):
             seed=seeds.integer("repository") % (2**31),
             coordinate_range=repo_config.coordinate_range,
             difficulty_class=repo_config.difficulty_class,
+            reference_solver=repo_config.reference_solver,
         )
         repository = ProblemRepository.from_spec(spec)
         self.logger.debug(

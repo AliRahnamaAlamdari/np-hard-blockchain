@@ -29,6 +29,9 @@ from .base import Experiment, mean_std
 class TimeAllocationExperiment(Experiment):
     name = "table3_time_allocation"
     description = "Time share between the PoW gate and useful work across difficulty tiers"
+    # Prefix for the CSV tables; kept separate from ``name`` so the original
+    # experiment's file names do not change.
+    table_prefix = "table3"
 
     def run(self) -> dict[str, Any]:
         tiers = self.config.sweep.get("difficulty_tiers")
@@ -64,6 +67,7 @@ class TimeAllocationExperiment(Experiment):
             all_solve: list[float] = []
             all_overhead: list[float] = []
             all_miner_overhead: list[float] = []
+            total_attempts = 0
 
             for seed in self.config.run.seeds:
                 bundle = seed_everything(seed)
@@ -115,6 +119,7 @@ class TimeAllocationExperiment(Experiment):
                 all_solve.extend(solve_seconds)
                 all_overhead.extend(network_overhead)
                 all_miner_overhead.extend(miner_overhead)
+                total_attempts += sum(record.network_attempts for record in result.blocks)
 
                 per_seed_rows.append(
                     {
@@ -125,6 +130,9 @@ class TimeAllocationExperiment(Experiment):
                         "blocks": len(result.blocks),
                         "converged": result.converged,
                         **report.to_dict(),
+                        "useful_share_percent_with_miner_overhead": (
+                            miner_report.useful_share_percent_with_overhead
+                        ),
                     }
                 )
 
@@ -133,8 +141,10 @@ class TimeAllocationExperiment(Experiment):
             share_mean, share_std = mean_std(seed_shares)
             pow_mean, pow_std = mean_std(seed_pow)
             solve_mean, solve_std = mean_std(seed_solve)
-            overhead_share_mean, _ = mean_std(seed_overhead_shares)
-            miner_overhead_share_mean, _ = mean_std(seed_miner_overhead_shares)
+            overhead_share_mean, overhead_share_std = mean_std(seed_overhead_shares)
+            miner_overhead_share_mean, miner_overhead_share_std = mean_std(
+                seed_miner_overhead_shares
+            )
 
             rows.append(
                 {
@@ -152,10 +162,14 @@ class TimeAllocationExperiment(Experiment):
                     "useful_share_std": share_std,
                     "useful_share_percent_with_miner_overhead": miner_overhead_share_mean,
                     "useful_share_percent_with_overhead": overhead_share_mean,
+                    "useful_share_with_miner_overhead_std": miner_overhead_share_std,
+                    "useful_share_with_overhead_std": overhead_share_std,
                     "mean_miner_overhead_seconds": pooled_miner.mean_overhead_seconds,
                     "mean_overhead_seconds": pooled.mean_overhead_seconds,
                     "pooled_useful_share_percent": pooled.useful_share_percent,
                     "mean_of_ratios_useful_share": pooled.useful_share_percent_mean_of_ratios,
+                    # In-protocol hash rate: every attempt of the race over its wall time.
+                    "hash_rate_hps": total_attempts / sum(all_pow),
                 }
             )
             self.logger.info(
@@ -168,16 +182,14 @@ class TimeAllocationExperiment(Experiment):
                 overhead_share_mean,
             )
 
-        figure_paths = figures.time_allocation_figure(
-            rows, self.output_dir / "table3_time_allocation"
-        )
+        figure_paths = figures.time_allocation_figure(rows, self.output_dir / self.name)
         return {
             "table_rows": rows,
             "per_seed_rows": per_seed_rows,
             "figures": [str(path) for path in figure_paths],
             "csv_tables": {
-                "table3_time_allocation": rows,
-                "table3_per_seed": per_seed_rows,
+                self.name: rows,
+                f"{self.table_prefix}_per_seed": per_seed_rows,
             },
             "paper_reference": {
                 "table": "tab:timeallocation",
@@ -193,3 +205,15 @@ class TimeAllocationExperiment(Experiment):
                 ),
             },
         }
+
+
+class TimeAllocationSweepExperiment(TimeAllocationExperiment):
+    """The same measurement over a dense difficulty sweep, for the share-vs-$d$ figure.
+
+    Kept as its own experiment so the three-tier run behind the paper's quoted
+    numbers is not overwritten by the sweep.
+    """
+
+    name = "time_allocation_sweep"
+    description = "Useful-work share across a dense sweep of gate difficulty"
+    table_prefix = "time_allocation_sweep"

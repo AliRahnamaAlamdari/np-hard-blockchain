@@ -11,8 +11,16 @@ O(2^N N^2) exact dynamic program, included because it returns the *same* optimal
 far faster -- which is what makes the paper's "strict O(N!) growth" a property of the
 chosen solver rather than of the problem, and which lets the solver-advantage
 experiment quantify the mining edge a better-equipped miner would gain.
-``nearest_neighbor_2opt`` is a fast heuristic used for the quality-threshold path the
-paper describes at L387 but never exercises.
+``nearest_neighbor``, ``nearest_neighbor_2opt`` and ``or_opt`` are a ladder of fast
+heuristics of increasing quality, used for the quality-threshold path the paper
+describes at L387 but never exercises.  A ladder is what the threshold needs: with a
+single heuristic the miner and the repository publisher compute the same tour and the
+bound can never bind, so the check would be present but vacuous.  With solvers of
+different strength the same bound accepts some and rejects others, which is the
+behaviour the acceptance rule is supposed to have.
+
+All solvers here are deterministic: no solver draws from a random stream, so a run
+seed still fixes every reported number bit-for-bit.
 """
 
 from __future__ import annotations
@@ -206,12 +214,10 @@ def held_karp(instance: TSPInstance) -> tuple[TSPSolution, int]:
     return TSPSolution(tour=tuple(tour), cost=best_cost), operations
 
 
-def nearest_neighbor_2opt(
-    instance: TSPInstance, max_passes: int = 50
-) -> tuple[TSPSolution, int]:
-    """Heuristic: nearest-neighbour construction refined by 2-opt.  Not exact."""
-    n = instance.size
-    matrix = distance_matrix(instance)
+def _nearest_neighbor_tour(
+    matrix: list[list[float]], n: int
+) -> tuple[list[int], int]:
+    """Greedy construction from city 0, always hopping to the nearest unvisited."""
     operations = 0
     unvisited = set(range(1, n))
     tour = [0]
@@ -222,6 +228,105 @@ def nearest_neighbor_2opt(
         tour.append(nearest)
         unvisited.remove(nearest)
         current = nearest
+    return tour, operations
+
+
+def nearest_neighbor(instance: TSPInstance) -> tuple[TSPSolution, int]:
+    """Construction only, no improvement pass -- the weakest rung of the ladder.
+
+    Included so the quality threshold has something to reject: a nearest-neighbour
+    tour is typically well above the 2-opt and Or-opt tours on the same instance, so
+    a bound published against a stronger heuristic binds against this one.
+    """
+    n = instance.size
+    matrix = distance_matrix(instance)
+    tour, operations = _nearest_neighbor_tour(matrix, n)
+    solution_tour = tuple(tour)
+    return (
+        TSPSolution(tour=solution_tour, cost=tour_cost(instance, solution_tour)),
+        operations,
+    )
+
+
+def or_opt(instance: TSPInstance, max_passes: int = 50) -> tuple[TSPSolution, int]:
+    """2-opt followed by Or-opt segment relocation, at a fixed iteration budget.
+
+    Or-opt lifts a run of one to three consecutive cities out of the tour and
+    reinserts it elsewhere, which 2-opt alone cannot do because 2-opt only reverses
+    contiguous spans.  Running both to a fixed pass budget makes this the strongest
+    heuristic in the ladder while keeping the cost polynomial and the result
+    deterministic.
+    """
+    n = instance.size
+    matrix = distance_matrix(instance)
+    base, operations = nearest_neighbor_2opt(instance, max_passes=max_passes)
+    tour = list(base.tour)
+    improved = True
+    passes = 0
+    while improved and passes < max_passes:
+        improved = False
+        passes += 1
+        for length in (1, 2, 3):
+            if n <= length + 2:
+                continue
+            position = 1
+            while position + length <= n:
+                segment = tour[position : position + length]
+                remainder = tour[:position] + tour[position + length :]
+                previous = remainder[position - 1]
+                following = remainder[position % len(remainder)]
+                removed = (
+                    matrix[previous][segment[0]]
+                    + matrix[segment[-1]][following]
+                    - matrix[previous][following]
+                )
+                best_gain = 1e-12
+                best_at = -1
+                best_reversed = False
+                for insert in range(1, len(remainder)):
+                    operations += 1
+                    left = remainder[insert - 1]
+                    right = remainder[insert % len(remainder)]
+                    if left in segment or right in segment:
+                        continue
+                    forward = (
+                        matrix[left][segment[0]]
+                        + matrix[segment[-1]][right]
+                        - matrix[left][right]
+                    )
+                    backward = (
+                        matrix[left][segment[-1]]
+                        + matrix[segment[0]][right]
+                        - matrix[left][right]
+                    )
+                    for added, is_reversed in ((forward, False), (backward, True)):
+                        if removed - added > best_gain:
+                            best_gain = removed - added
+                            best_at = insert
+                            best_reversed = is_reversed
+                if best_at >= 0:
+                    moved = list(reversed(segment)) if best_reversed else segment
+                    tour = remainder[:best_at] + moved + remainder[best_at:]
+                    improved = True
+                else:
+                    position += 1
+    # City 0 stays the anchor so the tour is comparable with every other solver.
+    origin = tour.index(0)
+    tour = tour[origin:] + tour[:origin]
+    solution_tour = tuple(tour)
+    return (
+        TSPSolution(tour=solution_tour, cost=tour_cost(instance, solution_tour)),
+        operations,
+    )
+
+
+def nearest_neighbor_2opt(
+    instance: TSPInstance, max_passes: int = 50
+) -> tuple[TSPSolution, int]:
+    """Heuristic: nearest-neighbour construction refined by 2-opt.  Not exact."""
+    n = instance.size
+    matrix = distance_matrix(instance)
+    tour, operations = _nearest_neighbor_tour(matrix, n)
     improved = True
     passes = 0
     while improved and passes < max_passes:
@@ -243,8 +348,13 @@ def nearest_neighbor_2opt(
 SOLVERS = {
     "brute_force": brute_force,
     "held_karp": held_karp,
+    "nearest_neighbor": nearest_neighbor,
     "nearest_neighbor_2opt": nearest_neighbor_2opt,
+    "or_opt": or_opt,
 }
+
+# Solvers that return the proven global optimum, as opposed to a feasible tour.
+EXACT_SOLVERS = frozenset({"brute_force", "held_karp"})
 
 
 def solve(instance: TSPInstance, solver: str = "brute_force") -> tuple[TSPSolution, int]:

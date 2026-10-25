@@ -1,0 +1,40 @@
+# Threshold-based acceptance of heuristic solutions on instances far beyond the
+# reach of any exact solver.
+#
+# The repository publishes a reference cost per instance, produced by or_opt and
+# committed inside the Merkle leaf. Miners run heuristics of three different
+# strengths against that bound, so the same threshold accepts some blocks and
+# rejects others. Publishing the bound costs one reference solve per instance, so
+# the repository is smaller here than in the timing experiments.
+
+base: ../default.yaml
+
+name: heuristic_acceptance
+description: Threshold-based acceptance of heuristic solutions beyond exact reach
+
+pow:
+  difficulty_bits: 8
+
+repository:
+  num_instances: 64
+  # The publisher's solver. Its cost is the bound every validator measures
+  # against; committing it in the leaf is what stops a miner supplying its own.
+  reference_solver: or_opt
+
+solver:
+  # Overridden per cell by sweep.miner_solvers; this is only the default.
+  name: nearest_neighbor_2opt
+  quality_threshold: 0.10
+
+run:
+  seeds: [0, 1, 2]
+
+sweep:
+  # N=20 is the largest size where Held-Karp can still supply the true optimum,
+  # so it is the only row where the gap to the optimum is measurable rather than
+  # only the gap to the published bound.
+  instance_sizes: [20, 50, 100, 200]
+  exact_reference_max_size: 20
+  miner_solvers: [nearest_neighbor, nearest_neighbor_2opt, or_opt]
+  thresholds: [0.0, 0.02, 0.05, 0.10, 0.25]
+  blocks_per_cell: 5

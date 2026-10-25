@@ -1,0 +1,50 @@
+# Extended problem-size sweep across all three solver backends.
+#
+# The paper's own sweep (table4_problem_size.yaml) stops at N=10 because the
+# exhaustive solver costs (N-1)! and N=12 already takes ~20 s per solve on the
+# reference host. That cap is a property of the chosen solver, not of the
+# framework, so this config runs each backend over the largest range it can
+# reach inside a sane wall-clock budget:
+#
+#   brute_force           N <= 12   ((N-1)! enumeration; 20 s/solve at N=12)
+#   held_karp             N <= 20   (O(2^N N^2) exact; 11 s/solve at N=20)
+#   nearest_neighbor_2opt N <= 800  (heuristic; 0.5 s/solve at N=800)
+#
+# Repetitions are reduced per size where a cell would otherwise dominate the
+# run. Held-Karp is additionally run as a comparison baseline on every
+# brute-force and heuristic cell up to held_karp_max_size, which is what
+# supplies the exact optimum the heuristic's gap is measured against.
+#
+# Expected wall clock on the reference host: ~15 minutes.
+
+base: table4_problem_size.yaml
+
+name: table4_problem_size
+description: Solve time and computation share against TSP size N, per solver backend
+
+run:
+  seeds: [0, 1, 2]
+  repetitions: 20
+
+sweep:
+  compare_held_karp: true
+  # Above this size the comparison solve would cost more than the cell it
+  # annotates, so the exact-optimum reference stops here.
+  held_karp_max_size: 16
+  # Timings below one millisecond are dominated by fixed interpreter overhead
+  # rather than by the algorithm, so they are excluded from the growth fit and
+  # named as excluded in the result.
+  fit_min_seconds: 0.001
+  solver_sweeps:
+    - solver: brute_force
+      instance_sizes: [4, 6, 8, 10, 11, 12]
+      repetitions: 20
+      repetitions_by_size: {11: 5, 12: 3}
+    - solver: held_karp
+      instance_sizes: [4, 6, 8, 10, 12, 14, 16, 17, 18, 19, 20]
+      repetitions: 20
+      repetitions_by_size: {17: 10, 18: 5, 19: 3, 20: 3}
+    - solver: nearest_neighbor_2opt
+      instance_sizes: [10, 12, 14, 16, 20, 50, 100, 200, 400, 800]
+      repetitions: 20
+      repetitions_by_size: {16: 3, 400: 10, 800: 5}

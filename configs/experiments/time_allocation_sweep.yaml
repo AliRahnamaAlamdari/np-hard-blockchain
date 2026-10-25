@@ -1,0 +1,36 @@
+# Dense difficulty sweep behind the useful-work-share figure.
+#
+# Same settings as table3_time_allocation.yaml (N=9, five miners, three seeds,
+# five blocks per point); only the gate difficulty is swept, d = 6..18 bits.
+
+base: ../default.yaml
+
+name: time_allocation_sweep
+description: Useful-work share across a dense sweep of gate difficulty
+
+repository:
+  instance_size: 9
+
+network:
+  num_miners: 5
+
+run:
+  seeds: [0, 1, 2]
+  log_every_blocks: 5
+
+sweep:
+  difficulty_tiers:
+    - {label: d6, difficulty_bits: 6}
+    - {label: d7, difficulty_bits: 7}
+    - {label: d8, difficulty_bits: 8}
+    - {label: d9, difficulty_bits: 9}
+    - {label: d10, difficulty_bits: 10}
+    - {label: d11, difficulty_bits: 11}
+    - {label: d12, difficulty_bits: 12}
+    - {label: d13, difficulty_bits: 13}
+    - {label: d14, difficulty_bits: 14}
+    - {label: d15, difficulty_bits: 15}
+    - {label: d16, difficulty_bits: 16}
+    - {label: d17, difficulty_bits: 17}
+    - {label: d18, difficulty_bits: 18}
+  blocks_per_tier: 5

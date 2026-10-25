@@ -8,7 +8,11 @@ binding chosen here is the sound one, and it matters:
 * ``VRF.Verify`` is bound to the public key **in the header**, and that key is also
   hashed into the header, so the PoW commits to the key that must produce the VRF;
 * the Merkle proof is checked against the claimed instance payload, not merely
-  recomputed to a root, so a valid path for a *different* instance is rejected.
+  recomputed to a root, so a valid path for a *different* instance is rejected;
+* the quality bound, when one is configured, is read from the Merkle-verified
+  instance rather than from the block's own claimed cost.  Reading it from the block
+  would let the miner supply the bound its own tour happens to meet, which makes the
+  check pass unconditionally -- present in the code and absent in effect.
 
 Any of these three loosened turns validation into a check that a real adversary
 passes trivially.
@@ -23,7 +27,11 @@ from typing import Any
 
 from ..crypto.hashing import meets_target
 from ..crypto.vrf import VRFBackend
-from ..tasks.repository import ProblemRepository, index_from_vrf_output
+from ..tasks.repository import (
+    ProblemRepository,
+    index_from_vrf_output,
+    reference_cost as published_reference_cost,
+)
 from ..tasks.tsp import verify_solution
 from .block import Block
 
@@ -124,13 +132,18 @@ class Validator:
         if not merkle_ok:
             return ValidationResult(False, RejectReason.MERKLE_INVALID, steps)
 
-        # Step 5 -- check the useful-work solution: feasibility and claimed cost.
+        # Step 5 -- check the useful-work solution: feasibility, claimed cost, and
+        # the repository's published quality bound.  Step 4 has already tied
+        # ``block.instance`` to the committed root, so its metadata is as trusted
+        # here as the coordinates the cost is recomputed from.
         start = time.perf_counter()
         solution_ok, _ = verify_solution(
             block.instance,
             block.solution,
             quality_threshold=self.quality_threshold,
-            reference_cost=block.solution_cost if self.quality_threshold is not None else None,
+            reference_cost=published_reference_cost(block.instance)
+            if self.quality_threshold is not None
+            else None,
             cost_tolerance=self.cost_tolerance,
         )
         steps["solution_check"] = time.perf_counter() - start

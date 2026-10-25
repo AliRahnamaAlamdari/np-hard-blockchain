@@ -179,63 +179,115 @@ class ValidationCostExperiment(Experiment):
             },
         }
 
-    def _asymmetry_vs_size(self) -> list[dict[str, Any]]:
-        """Measure the solve/verify ratio at several instance sizes.
+    def _asymmetry_sweeps(self) -> list[dict[str, Any]]:
+        """Normalise the legacy and per-solver shapes of the asymmetry sweep.
 
-        Verification cost is nearly independent of N -- only the feasibility check
-        scales, and it does so linearly -- while solving grows as (N-1)!.  The ratio
-        is therefore a property of the chosen instance size, not of the protocol, and
-        reporting it as a single number invites the reader to treat it as a constant.
+        The legacy shape (``asymmetry_sizes`` under the config's single solver) is
+        what the paper's own config uses and is preserved.  The extended shape
+        (``asymmetry_sweeps``) gives each solver backend its own size list, because
+        the reachable range differs by two orders of magnitude between the
+        exhaustive solver and the heuristic, and the asymmetry claim has to be
+        stated per backend once it does.
         """
+        declared = self.config.sweep.get("asymmetry_sweeps")
+        if declared:
+            return [
+                {
+                    "solver": str(entry.get("solver", self.config.solver.name)),
+                    "sizes": [int(v) for v in entry["sizes"]],
+                    "blocks": int(
+                        entry.get(
+                            "blocks", self.config.sweep.get("asymmetry_blocks", 3)
+                        )
+                    ),
+                    "blocks_by_size": {
+                        int(k): int(v)
+                        for k, v in (entry.get("blocks_by_size") or {}).items()
+                    },
+                }
+                for entry in declared
+            ]
         sizes = [int(v) for v in self.config.sweep.get("asymmetry_sizes", [])]
         if not sizes:
             return []
+        return [
+            {
+                "solver": self.config.solver.name,
+                "sizes": sizes,
+                "blocks": int(self.config.sweep.get("asymmetry_blocks", 3)),
+                "blocks_by_size": {},
+            }
+        ]
+
+    def _asymmetry_vs_size(self) -> list[dict[str, Any]]:
+        """Measure the solve/verify ratio at several instance sizes and solvers.
+
+        Verification cost is nearly independent of N -- only the feasibility check
+        scales, and it does so linearly -- while solving grows at whatever rate the
+        chosen solver imposes.  The ratio is therefore a property of the instance
+        size *and* the solver, not of the protocol, and reporting it as a single
+        number invites the reader to treat it as a constant.
+        """
+        sweeps = self._asymmetry_sweeps()
+        if not sweeps:
+            return []
 
         rows: list[dict[str, Any]] = []
-        blocks = int(self.config.sweep.get("asymmetry_blocks", 3))
-        for size in sizes:
-            self.logger.info("asymmetry sweep at N=%d (%d blocks/seed)", size, blocks)
-            solve_samples: list[float] = []
-            verify_samples: list[float] = []
-            for seed in self.config.run.seeds:
-                bundle = seed_everything(seed)
-                repository = self.build_repository(bundle, instance_size=size)
-                network = Network(
-                    num_miners=self.config.network.num_miners,
-                    repository=repository,
-                    difficulty_bits=self.config.pow.difficulty_bits,
-                    vrf_backend=self.config.vrf.backend,
-                    seeds=bundle,
-                    solver=self.config.solver.name,
-                    max_attempts=self.config.pow.max_attempts,
-                    quality_threshold=self.config.solver.quality_threshold,
-                    cost_tolerance=self.config.solver.cost_tolerance,
-                    tie_break=self.config.network.tie_break,
-                    vrf_kwargs=self.config.vrf.build_kwargs(),
+        for sweep in sweeps:
+            solver = sweep["solver"]
+            for size in sweep["sizes"]:
+                blocks = sweep["blocks_by_size"].get(size, sweep["blocks"])
+                self.logger.info(
+                    "asymmetry sweep: solver=%s N=%d (%d blocks/seed)",
+                    solver,
+                    size,
+                    blocks,
                 )
-                result = network.run(num_blocks=blocks, log_every=0)
-                for record in result.blocks:
-                    solve_samples.append(record.solve_seconds)
-                    verify_samples.append(sum(record.validation_steps.values()))
+                solve_samples: list[float] = []
+                verify_samples: list[float] = []
+                for seed in self.config.run.seeds:
+                    bundle = seed_everything(seed)
+                    repository = self.build_repository(bundle, instance_size=size)
+                    network = Network(
+                        num_miners=self.config.network.num_miners,
+                        repository=repository,
+                        difficulty_bits=self.config.pow.difficulty_bits,
+                        vrf_backend=self.config.vrf.backend,
+                        seeds=bundle,
+                        solver=solver,
+                        max_attempts=self.config.pow.max_attempts,
+                        quality_threshold=self.config.solver.quality_threshold,
+                        cost_tolerance=self.config.solver.cost_tolerance,
+                        tie_break=self.config.network.tie_break,
+                        vrf_kwargs=self.config.vrf.build_kwargs(),
+                    )
+                    result = network.run(num_blocks=blocks, log_every=0)
+                    for record in result.blocks:
+                        solve_samples.append(record.solve_seconds)
+                        verify_samples.append(sum(record.validation_steps.values()))
 
-            solve_mean, solve_std = mean_std(solve_samples)
-            verify_mean, verify_std = mean_std(verify_samples)
-            rows.append(
-                {
-                    "size": size,
-                    "mean_solve_ms": solve_mean * 1000.0,
-                    "std_solve_ms": solve_std * 1000.0,
-                    "mean_verify_ms": verify_mean * 1000.0,
-                    "std_verify_ms": verify_std * 1000.0,
-                    "asymmetry_ratio": solve_mean / verify_mean if verify_mean > 0 else float("inf"),
-                    "num_blocks": len(solve_samples),
-                }
-            )
-            self.logger.info(
-                "N=%d -> solve %.3f ms, verify %.4f ms, asymmetry %.0fx",
-                size,
-                solve_mean * 1000.0,
-                verify_mean * 1000.0,
-                rows[-1]["asymmetry_ratio"],
-            )
+                solve_mean, solve_std = mean_std(solve_samples)
+                verify_mean, verify_std = mean_std(verify_samples)
+                rows.append(
+                    {
+                        "solver": solver,
+                        "size": size,
+                        "mean_solve_ms": solve_mean * 1000.0,
+                        "std_solve_ms": solve_std * 1000.0,
+                        "mean_verify_ms": verify_mean * 1000.0,
+                        "std_verify_ms": verify_std * 1000.0,
+                        "asymmetry_ratio": solve_mean / verify_mean
+                        if verify_mean > 0
+                        else float("inf"),
+                        "num_blocks": len(solve_samples),
+                    }
+                )
+                self.logger.info(
+                    "solver=%s N=%d -> solve %.3f ms, verify %.4f ms, asymmetry %.1fx",
+                    solver,
+                    size,
+                    solve_mean * 1000.0,
+                    verify_mean * 1000.0,
+                    rows[-1]["asymmetry_ratio"],
+                )
         return rows

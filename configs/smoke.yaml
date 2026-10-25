@@ -16,6 +16,9 @@ pow:
 repository:
   num_instances: 8
   instance_size: 6
+  # Publishes a Merkle-committed quality bound so the smoke run exercises the
+  # threshold-acceptance path as well. Cheap here: 8 tiny instances.
+  reference_solver: nearest_neighbor_2opt
 
 network:
   num_miners: 3

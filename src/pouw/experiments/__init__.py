@@ -7,6 +7,7 @@ from .base import Experiment, ExperimentOutput
 from .baselines_compare import BaselineComparisonExperiment
 from .consensus import ConsensusExperiment
 from .convergence import ConvergenceExperiment
+from .heuristic_acceptance import HeuristicAcceptanceExperiment
 from .precomputation_scale import PrecomputationScaleExperiment
 from .problem_classes import ProblemClassExperiment
 from .reseeding import ReseedingBiasExperiment
@@ -16,7 +17,7 @@ from .sensitivity import (
     RepositorySizeSensitivity,
     SolverAdvantageSensitivity,
 )
-from .table3_time_allocation import TimeAllocationExperiment
+from .table3_time_allocation import TimeAllocationExperiment, TimeAllocationSweepExperiment
 from .table4_problem_size import ProblemSizeExperiment
 from .table5_fairness import FairnessExperiment
 from .table6_validation_cost import ValidationCostExperiment
@@ -43,6 +44,10 @@ REGISTRY: dict[str, type[Experiment]] = {
         ReseedingBiasExperiment,
         PrecomputationScaleExperiment,
         ValidationScaleExperiment,
+        # Objection-response experiments
+        HeuristicAcceptanceExperiment,
+        # Figure-only experiments
+        TimeAllocationSweepExperiment,
     )
 }
 
@@ -65,6 +70,8 @@ PAPER_MAP = {
     "reseeding_bias": "Reviewer-2 C6/C8: reseeding bias vs hashing target, safe-target boundary",
     "precomputation_scale": "Reviewer-2 C3: static-repo precompute cost + freshness break-even",
     "validation_scale": "Reviewer-2 C7/C10: feasibility-vs-optimality + communication cost",
+    "heuristic_acceptance": "Objection 1: threshold acceptance beyond exact-solver reach",
+    "time_allocation_sweep": "Figure: useful-work share vs gate difficulty (d = 6..18)",
 }
 
 __all__ = [
@@ -78,12 +85,14 @@ __all__ = [
     "Experiment",
     "ExperimentOutput",
     "FairnessExperiment",
+    "HeuristicAcceptanceExperiment",
     "HashRateSensitivity",
     "ProblemClassExperiment",
     "ProblemSizeExperiment",
     "RepositorySizeSensitivity",
     "SolverAdvantageSensitivity",
     "TimeAllocationExperiment",
+    "TimeAllocationSweepExperiment",
     "VRFGrindingAblation",
     "ValidationCostExperiment",
 ]

@@ -16,7 +16,7 @@ from ..chain import adversary as adv
 from ..chain.consensus_sim import ConsensusConfig, ConsensusSim
 from ..crypto.vrf import build_vrf
 from ..seeding import seed_everything
-from ..stats_utils import mean_std, summarise
+from ..stats_utils import confidence_interval, mean_std, summarise
 from .base import Experiment
 
 
@@ -40,15 +40,23 @@ class AdversarialExperiment(Experiment):
                                            int(self.config.sweep.get("grinding_evals", 50)))
                 per_seed.append(g.distinct_tasks_per_seed)
             m, s = mean_std(per_seed)
+            low, _, high = confidence_interval(per_seed)
             grinding_rows.append({"vrf_backend": backend, "mean_distinct_tasks_per_seed": m,
-                                  "std": s, "unique_output": build_vrf(backend).is_unique_output()})
+                                  "std": s, "unique_output": build_vrf(backend).is_unique_output(),
+                                  "evaluations_per_seed": int(self.config.sweep.get("grinding_evals", 50)),
+                                  "num_seeds": len(per_seed), "ci95_low": low, "ci95_high": high})
             self.logger.info("grinding %s: %.1f tasks/seed", backend, m)
 
         # --- precomputation: hit rate == coverage, independent of repo size ---
         precomp_rows = []
         vrf = build_vrf("ecvrf")
+        # The VRF outputs depend only on the key and trial label, so every coverage level
+        # sees the same indices; their uniformity is tested once, on the first level.
+        precomp_indices: list[int] = []
         for frac in self.config.sweep.get("precomputed_fractions", [0.05, 0.1, 0.25, 0.5]):
             per_seed = []
+            hit_flags: list[float] = []
+            coverage = frac
             for seed in self.config.run.seeds:
                 bundle = seed_everything(seed)
                 kp = vrf.keygen(bundle.bytes_for("adv"))
@@ -56,9 +64,23 @@ class AdversarialExperiment(Experiment):
                                                 int(self.config.sweep.get("precomp_trials", 800)),
                                                 random.Random(bundle.integer("precomp")))
                 per_seed.append(r.empirical_hit_rate)
+                hit_flags.extend([1.0] * r.hits + [0.0] * (r.trials - r.hits))
+                coverage = r.theoretical_hit_rate
+                if not precomp_rows:
+                    precomp_indices.extend(r.indices)
             m, s = mean_std(per_seed)
+            low, _, high = confidence_interval(hit_flags)
+            # The prediction is the realised coverage int(|R| * frac) / |R|, not the
+            # nominal fraction: 0.05 of 256 instances is 12, i.e. 0.0469.
             precomp_rows.append({"precomputed_fraction": frac, "empirical_hit_rate": m,
-                                 "hit_rate_std": s, "theoretical_hit_rate": frac})
+                                 "hit_rate_std": s, "theoretical_hit_rate": coverage,
+                                 "trials": len(hit_flags), "hits": int(sum(hit_flags)),
+                                 "ci95_low": low, "ci95_high": high})
+        from scipy import stats
+
+        precomp_uniformity_p = float(
+            stats.chisquare([precomp_indices.count(i) for i in range(repo_size)]).pvalue
+        )
 
         # --- replay ---
         kp = vrf.keygen(b"replay")
@@ -84,15 +106,19 @@ class AdversarialExperiment(Experiment):
         steer_rows = []
         for phi in self.config.sweep.get("favoured_fractions", [0.5, 0.25]):
             per_seed = []
+            samples: list[int] = []
             for seed in self.config.run.seeds:
                 bundle = seed_everything(seed)
                 kp = vrf.keygen(bundle.bytes_for("adv"))
                 r = adv.adaptive_steering_cost(vrf, kp.secret, min(6, difficulty), 100, phi,
                                                int(self.config.sweep.get("steer_trials", 60)))
                 per_seed.append(r.mean_pow_seeds_to_hit)
+                samples.extend(r.samples)
             m, s = mean_std(per_seed)
+            low, _, high = confidence_interval(samples)
             steer_rows.append({"favoured_fraction": phi, "mean_seeds": m, "std": s,
-                               "theoretical": 1.0 / phi})
+                               "theoretical": 1.0 / phi, "trials": len(samples),
+                               "ci95_low": low, "ci95_high": high})
             self.logger.info("steering phi=%.2f: %.2f seeds (theory %.2f)", phi, m, 1.0 / phi)
 
         # --- malicious majority (negative result via consensus sim) ---
@@ -112,13 +138,16 @@ class AdversarialExperiment(Experiment):
                 adv_share = res.main_chain_miner_counts.get(0, 0) / total_main if total_main else 0.0
                 per_seed.append(adv_share)
             m, s = mean_std(per_seed)
+            low, _, high = confidence_interval(per_seed)
             majority_rows.append({"adversary_hashrate_share": beta, "adversary_mainchain_share": m,
-                                  "std": s})
+                                  "std": s, "blocks_per_seed": blocks, "num_seeds": len(per_seed),
+                                  "ci95_low": low, "ci95_high": high})
             self.logger.info("majority beta=%.1f -> adversary won %.1f%% of main chain", beta, m * 100)
 
         return {
             "grinding": grinding_rows,
             "precomputation": precomp_rows,
+            "precomputation_index_uniformity_p": precomp_uniformity_p,
             "replay": replay_row,
             "assignment_bias": {"repo_size": bias_size, "mean_p_value": bias_p_mean,
                                 "std_p_value": bias_p_std, "uniform_at_5pct": bias_p_mean > 0.05},

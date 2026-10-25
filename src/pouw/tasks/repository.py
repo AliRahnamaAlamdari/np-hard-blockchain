@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from ..crypto.merkle import MerkleProof, MerkleTree, verify_membership
-from .tsp import TSPInstance, generate_instance
+from .tsp import TSPInstance, generate_instance, solve
 
 
 @dataclass(frozen=True)
@@ -25,6 +25,10 @@ class RepositorySpec:
     coordinate_range: tuple[float, float]
     difficulty_class: str | None = None
     id_prefix: str = "I"
+    # Solver the repository publisher runs once per instance to establish the
+    # reference cost that the validators' quality threshold is measured against.
+    # ``None`` publishes no bound, and the threshold is then unavailable.
+    reference_solver: str | None = None
 
 
 class ProblemRepository:
@@ -40,7 +44,14 @@ class ProblemRepository:
 
     @classmethod
     def from_spec(cls, spec: RepositorySpec) -> "ProblemRepository":
-        """Build deterministically from a spec.  Same spec => same Merkle root."""
+        """Build deterministically from a spec.  Same spec => same Merkle root.
+
+        When ``spec.reference_solver`` is set, the publisher solves each instance
+        once and writes the resulting cost into the instance metadata.  Metadata is
+        part of the Merkle leaf, so the bound is committed by the repository root
+        exactly as the instance data is: a miner cannot raise the bound to make its
+        own tour acceptable without breaking the membership proof.
+        """
         instances = [
             generate_instance(
                 instance_id=f"{spec.id_prefix}-{spec.instance_size}-{index:04d}",
@@ -51,6 +62,11 @@ class ProblemRepository:
             )
             for index in range(spec.num_instances)
         ]
+        if spec.reference_solver is not None:
+            instances = [
+                _with_reference_cost(instance, spec.reference_solver)
+                for instance in instances
+            ]
         return cls(instances)
 
     @classmethod
@@ -113,6 +129,29 @@ class ProblemRepository:
             "merkle_root": self.root_hex,
             "merkle_depth": self.depth,
         }
+
+
+def _with_reference_cost(instance: TSPInstance, solver: str) -> TSPInstance:
+    """Return ``instance`` with the publisher's reference cost in its metadata."""
+    solution, _ = solve(instance, solver)
+    metadata = dict(instance.metadata)
+    metadata["reference_cost"] = float(solution.cost)
+    metadata["reference_solver"] = solver
+    return TSPInstance(
+        instance_id=instance.instance_id,
+        coordinates=instance.coordinates,
+        metadata=metadata,
+    )
+
+
+def reference_cost(instance: TSPInstance) -> float | None:
+    """The repository-published bound for ``instance``, if it carries one.
+
+    Reading it here rather than at each call site keeps one definition of where the
+    bound comes from: the Merkle-committed leaf, never the block.
+    """
+    value = instance.metadata.get("reference_cost")
+    return float(value) if value is not None else None
 
 
 def index_from_vrf_output(vrf_output: bytes, num_instances: int) -> int:

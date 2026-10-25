@@ -47,6 +47,9 @@ class RepositoryConfig:
     coordinate_min: float = 0.0
     coordinate_max: float = 100.0
     difficulty_class: str | None = None
+    # Publisher-side solver whose cost becomes the Merkle-committed quality bound.
+    # None => no bound is published and solver.quality_threshold cannot be used.
+    reference_solver: str | None = None
 
     @property
     def coordinate_range(self) -> tuple[float, float]:
@@ -57,7 +60,8 @@ class RepositoryConfig:
 class SolverConfig:
     """Useful-work solver and the acceptance rule applied by validators."""
 
-    name: str = "brute_force"  # brute_force | held_karp | nearest_neighbor_2opt
+    # brute_force | held_karp | nearest_neighbor | nearest_neighbor_2opt | or_opt
+    name: str = "brute_force"
     quality_threshold: float | None = None  # None => exact optimum required
     cost_tolerance: float = 1e-9
 
@@ -236,3 +240,15 @@ def validate(config: ExperimentConfig) -> None:
         raise ValueError("run.seeds must contain at least one seed")
     if config.solver.quality_threshold is not None and config.solver.quality_threshold < 0:
         raise ValueError("solver.quality_threshold must be non-negative")
+    if config.repository.reference_solver is not None:
+        if config.repository.reference_solver not in SOLVERS:
+            raise ValueError(
+                f"repository.reference_solver must be one of {sorted(SOLVERS)}, "
+                f"got {config.repository.reference_solver!r}"
+            )
+    elif config.solver.quality_threshold is not None:
+        raise ValueError(
+            "solver.quality_threshold requires repository.reference_solver: the "
+            "bound must come from the Merkle-committed repository, not from the "
+            "block, or the check is vacuous"
+        )

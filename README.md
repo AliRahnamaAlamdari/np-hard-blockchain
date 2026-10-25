@@ -78,8 +78,12 @@ a machine fingerprint, so any number can be traced to the run that produced it.
 | **New** — repository size N of Equation (3) | `python scripts/run_experiment.py sensitivity_repository_size` | ~4 min |
 | **New** — fairness beyond equal power | `python scripts/run_experiment.py sensitivity_hash_rate` | ~3 min |
 | **New** — solver-quality mining advantage | `python scripts/run_experiment.py sensitivity_solver_advantage` | ~1 min |
+| **New** — extended size sweep, all three solver backends | `python scripts/run_experiment.py table4_problem_size --config configs/experiments/table4_problem_size_extended.yaml` | ~15 min |
+| **New** — threshold acceptance beyond exact-solver reach | `python scripts/run_experiment.py heuristic_acceptance` | ~2 min |
 | All LaTeX tables | `python scripts/make_tables.py` | seconds |
 | All figures | `python scripts/make_figures.py` | seconds |
+| Useful-work share vs gate difficulty, $d$ = 6..18 | `python scripts/run_experiment.py time_allocation_sweep` | ~1 min |
+| Manuscript figures (Fig1--Fig4, vector PDF at print width) | `python scripts/make_paper_figures.py` | seconds |
 
 Runtimes are wall-clock on the reference machine below. `python scripts/run_experiment.py --list`
 prints the registry.
@@ -90,7 +94,29 @@ Common overrides, applied on top of any config:
 python scripts/run_experiment.py table5_fairness --seeds 0 1 2 3 4 --blocks 500
 python scripts/run_experiment.py table6_validation_cost --vrf ecdsa_pseudo
 python scripts/run_experiment.py table4_problem_size --repetitions 50
+python scripts/run_experiment.py table4_problem_size --solver held_karp
 ```
+
+## Solver backends
+
+Five solvers sit behind one interface and are chosen per experiment by
+`solver.name`. Block validity never depends on which one ran: a block is accepted on
+its witness, its recomputed cost, and the repository's published quality bound.
+
+| `solver.name` | Kind | Growth | Practical reach on the reference host |
+|---|---|---|---|
+| `brute_force` | exact | `(N-1)!` | N ≤ 12 (20 s/solve at N=12) |
+| `held_karp` | exact | `O(2^N N^2)` | N ≤ 20 (11 s/solve at N=20) |
+| `nearest_neighbor` | heuristic | `O(N^2)` | thousands |
+| `nearest_neighbor_2opt` | heuristic | `O(N^2)` per pass | thousands |
+| `or_opt` | heuristic | `O(N^2)` per pass | hundreds |
+
+The two exact solvers return the same optimum on every shared instance, which the
+test suite asserts. The heuristics are used with `repository.reference_solver`, which
+makes the repository publish a per-instance reference cost inside the Merkle leaf;
+validators then accept a tour within `(1 + solver.quality_threshold)` of that bound.
+Setting `solver.quality_threshold` without `repository.reference_solver` is a config
+error, because a bound taken from the block itself can never fail.
 
 ## Hardware assumptions
 

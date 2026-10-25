@@ -86,6 +86,8 @@ class PrecomputationResult:
     empirical_hit_rate: float
     theoretical_hit_rate: float
     trials: int
+    hits: int = 0
+    indices: tuple[int, ...] = ()
 
 
 def precomputation_exposure(
@@ -101,10 +103,12 @@ def precomputation_exposure(
     """
     precomputed = set(rng.sample(range(repo_size), int(repo_size * precomputed_fraction)))
     hits = 0
+    indices: list[int] = []
     for t in range(trials):
         seed = f"precomp-seed-{t}".encode()
         beta, _ = vrf.prove(secret, seed)
         index = index_from_vrf_output(beta, repo_size)
+        indices.append(index)
         if index in precomputed:
             hits += 1
     return PrecomputationResult(
@@ -113,6 +117,8 @@ def precomputation_exposure(
         empirical_hit_rate=hits / trials,
         theoretical_hit_rate=len(precomputed) / repo_size,
         trials=trials,
+        hits=hits,
+        indices=tuple(indices),
     )
 
 
@@ -192,6 +198,7 @@ class AdaptiveSteeringResult:
     mean_pow_seeds_to_hit: float
     theoretical_expectation: float
     trials: int
+    samples: tuple[int, ...] = ()
 
 
 def adaptive_steering_cost(
@@ -222,6 +229,7 @@ def adaptive_steering_cost(
         mean_pow_seeds_to_hit=mean,
         theoretical_expectation=1.0 / favoured_fraction,
         trials=trials,
+        samples=tuple(seeds_needed),
     )
 
 

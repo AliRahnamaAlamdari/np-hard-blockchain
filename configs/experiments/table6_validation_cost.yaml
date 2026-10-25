@@ -31,3 +31,19 @@ sweep:
   # Sweeping it makes that explicit instead of reporting one number as a constant.
   asymmetry_sizes: [8, 9, 10, 11]
   asymmetry_blocks: 3
+  # Per-solver asymmetry sweep. The exhaustive solver caps out at N=12, the exact
+  # dynamic program reaches N=20, and the heuristic reaches several hundred, so
+  # the solve-versus-verify ratio has to be stated per backend rather than once.
+  # Block counts are reduced on the cells that would otherwise dominate the run.
+  asymmetry_sweeps:
+    - solver: brute_force
+      sizes: [8, 9, 10, 11, 12]
+      blocks: 3
+      blocks_by_size: {12: 1}
+    - solver: held_karp
+      sizes: [10, 14, 16, 18, 20]
+      blocks: 3
+      blocks_by_size: {20: 1}
+    - solver: nearest_neighbor_2opt
+      sizes: [20, 100, 400, 800]
+      blocks: 3
